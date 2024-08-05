@@ -3,6 +3,8 @@ use std::rc::Rc;
 use image::{self, imageops};
 use itertools::Itertools;
 
+use crate::svg;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SerializedImage {
     pub byte_count: u32,
@@ -55,9 +57,8 @@ impl SerializedImage {
         }
     }
 
-    pub fn from_svg(svg: String) -> Result<Self> {
-        let img = svg::pixmap_svg(svg, pix_width, pix_height);
-        Self::from_image(img)
+    pub fn from_svg(svg: String, pix_width: u32, pix_height: u32) -> Result<Self, svg::Error> {
+        let img = svg::pixmap_svg(svg, pix_width, pix_height)?;
+        Ok(Self::from_image(&img))
     }
-
 }

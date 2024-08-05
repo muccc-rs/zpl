@@ -1,4 +1,4 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use device::ZplPrinter;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -56,8 +56,8 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
 
     let margin_x = 0;
     let margin_y = 0;
- 
-    let device = ZplPrinter::with_address(id).await?;
+
+    let device = ZplPrinter::with_address(ip).await?;
     let config = device.discover_device_info().await?;
 
     let pix_width = width * config.indication.dpmm - 2 * margin_x;
@@ -68,20 +68,15 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
             pix_height,
             pix_width,
             ::image::imageops::FilterType::Lanczos3,
-        )
+        );
+        crate::image::SerializedImage::from_image(&img)
     } else if let Some(svg) = svg {
         let svg = tokio::fs::read_to_string(svg)
             .await
             .expect("SVG file not found");
 
-        
-
-        if let Some(output_rendered) = output_rendered {
-            pix.save_with_format(output_rendered, ::image::ImageFormat::Png)
-                .unwrap();
-        }
-
-        pix
+        crate::image::SerializedImage::from_svg(svg, pix_width, pix_height)
+            .context("Could not load SVG")?
     } else {
         bail!("No image source selected");
     };
@@ -110,7 +105,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
             },
             ZplCommand::SetHorizontalShift(0),
             ZplCommand::MoveOrigin(margin_x, margin_y),
-            ZplCommand::Image { image },
+            ZplCommand::Image(image),
             ZplCommand::PrintQuantity {
                 total: copies.get(),
                 pause_and_cut_after: copies.get(),
@@ -139,7 +134,7 @@ pub async fn run_output_zpl_only(args: Args) -> anyhow::Result<()> {
 
     let margin_x = 0;
     let margin_y = 0;
-  
+
     let pix_width = width * dpmm - 2 * margin_x;
     let pix_height = height * dpmm - 2 * margin_y;
     let image = if let Some(image) = image {
@@ -148,20 +143,15 @@ pub async fn run_output_zpl_only(args: Args) -> anyhow::Result<()> {
             pix_height,
             pix_width,
             ::image::imageops::FilterType::Lanczos3,
-        )
+        );
+        crate::image::SerializedImage::from_image(&img)
     } else if let Some(svg) = svg {
         let svg = tokio::fs::read_to_string(svg)
             .await
             .expect("SVG file not found");
 
-        let pix = svg::pixmap_svg(svg, pix_width, pix_height).expect("SVG file invalid");
-
-        if let Some(output_rendered) = output_rendered {
-            pix.save_with_format(output_rendered, ::image::ImageFormat::Png)
-                .unwrap();
-        }
-
-        pix
+        crate::image::SerializedImage::from_svg(svg, pix_width, pix_height)
+            .context("Could not load SVG")?
     } else {
         bail!("No image source selected");
     };
@@ -190,7 +180,7 @@ pub async fn run_output_zpl_only(args: Args) -> anyhow::Result<()> {
             },
             ZplCommand::SetHorizontalShift(0),
             ZplCommand::MoveOrigin(margin_x, margin_y),
-            ZplCommand::Image { image },
+            ZplCommand::Image(image),
             ZplCommand::PrintQuantity {
                 total: copies.get(),
                 pause_and_cut_after: copies.get(),
