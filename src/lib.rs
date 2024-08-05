@@ -57,7 +57,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
     let margin_x = 0;
     let margin_y = 0;
 
-    let device = ZplPrinter::with_address(ip).await?;
+    let mut device = ZplPrinter::with_address(ip).await?;
     let config = device.discover_device_info().await?;
 
     let pix_width = width * config.indication.dpmm - 2 * margin_x;
@@ -116,7 +116,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
         ],
     };
 
-    device.unwrap().print(l).await
+    Ok(device.print(l).await?)
 }
 
 pub async fn run_output_zpl_only(args: Args) -> anyhow::Result<()> {
