@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use image::{self, imageops};
 use itertools::Itertools;
@@ -10,7 +10,7 @@ pub struct SerializedImage {
     pub byte_count: u32,
     pub total_field_count: u32,
     pub bytes_per_row: u32,
-    pub data: Rc<str>,
+    pub data: Arc<str>,
 }
 
 impl SerializedImage {

@@ -1,6 +1,6 @@
 /// Talk to the device.
 use crate::{command, read, label::Label};
-use tokio::{self, io::AsyncWriteExt, net::TcpStream};
+use tokio::{self, io::{self, AsyncWriteExt}, net::TcpStream};
 
 pub struct ZplPrinter {
     connection: tokio::net::TcpStream,
@@ -10,7 +10,7 @@ pub struct ZplPrinter {
 impl ZplPrinter {
     pub async fn with_address(addr: std::net::SocketAddr) -> io::Result<Self> {
         let socket = tokio::net::TcpStream::connect(addr).await?;
-        Ok(Self::with_socket(socket))
+        Ok(Self::with_socket(socket).await)
     }
 
     pub async fn with_socket(socket: tokio::net::TcpStream) -> Self {
@@ -136,13 +136,13 @@ impl ZplPrinter {
         let (mut rx, mut tx) = io::split(self.connection);
 
         // Send data to the printer
-        let response_lines = l.how_many_lines_of_text();
+        let response_lines = label.how_many_lines_of_text();
         tokio::spawn(async move {
-            for line in String::from(l).lines() {
+            for line in String::from(label).lines() {
                 tx.write_all(line.as_bytes()).await?;
             }
 
-            Ok(())
+            Ok::<(), io::Error>(())
         });
 
         // Wait for incoming data
@@ -166,7 +166,9 @@ trait FromField {
 
 struct Ignore;
 
-pub async fn discover(stream: TcpStream) -> Result<command::DeviceInfo, std::io::Error> {}
+pub async fn discover(stream: TcpStream) -> Result<command::DeviceInfo, std::io::Error> {
+    todo!();
+}
 
 fn split_line<const N: usize>(line: &[u8], data: [&mut dyn FromField; N]) {
     let Ok(line) = core::str::from_utf8(line) else {

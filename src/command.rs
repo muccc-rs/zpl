@@ -1,4 +1,4 @@
-use crate::image::{serialize_image, SerializedImage};
+use crate::image::{SerializedImage};
 
 #[derive(Clone)]
 pub enum PostPrintAction {
