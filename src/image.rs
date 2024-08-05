@@ -1,6 +1,10 @@
 use image::{self, imageops};
 use itertools::Itertools;
 
+struct SerializedImage {
+    byte_count
+}
+
 pub fn serialize_image(img: &image::DynamicImage) -> String {
     let mut img = img.grayscale().into_luma8();
 

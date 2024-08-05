@@ -1,5 +1,5 @@
 /// Talk to the device.
-use crate::{command, read};
+use crate::{command, read, label::Label};
 use tokio::{self, io::AsyncWriteExt, net::TcpStream};
 
 pub struct ZplPrinter {
@@ -130,6 +130,33 @@ impl ZplPrinter {
         }
 
         Ok(self.info.insert(info))
+    }
+
+    pub async fn print(&mut self, label: Label) -> std::io::Result<()> {
+        let (mut rx, mut tx) = io::split(self.connection);
+
+        // Send data to the printer
+        let response_lines = l.how_many_lines_of_text();
+        tokio::spawn(async move {
+            for line in String::from(l).lines() {
+                tx.write_all(line.as_bytes()).await?;
+            }
+
+            Ok(())
+        });
+
+        // Wait for incoming data
+        let mut buf = vec![];
+        for _ in 0..response_lines {
+            let line = read::line_with(&mut buf, &mut rx).await?;
+            eprintln!("{}", String::from_utf8_lossy(&line.string));
+        }
+
+        if response_lines == 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(10_000)).await;
+        }
+
+        Ok(())
     }
 }
 
