@@ -1,11 +1,17 @@
+use std::rc::Rc;
+
 use image::{self, imageops};
 use itertools::Itertools;
 
-struct SerializedImage {
-    byte_count
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SerializedImage {
+    pub byte_count: u32,
+    pub total_field_count: u32,
+    pub bytes_per_row: u32,
+    pub data: Rc<str>,
 }
 
-pub fn serialize_image(img: &image::DynamicImage) -> String {
+pub fn serialize_image(img: &image::DynamicImage) -> SerializedImage {
     let mut img = img.grayscale().into_luma8();
 
     imageops::dither(&mut img, &imageops::BiLevel);
@@ -39,5 +45,11 @@ pub fn serialize_image(img: &image::DynamicImage) -> String {
     let total_field_count = bytes_per_row * img.height();
     let byte_count = total_field_count * 2;
 
-    format!("^GFA,{byte_count},{total_field_count},{bytes_per_row},{data}^FS")
+    //format!("^GFA,{byte_count},{total_field_count},{bytes_per_row},{data}^FS")
+    SerializedImage {
+        byte_count,
+        total_field_count,
+        bytes_per_row,
+        data: data.into(),
+    }
 }
