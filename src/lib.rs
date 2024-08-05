@@ -74,7 +74,7 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
             .await
             .expect("SVG file not found");
 
-        let pix = svg::pixmap_svg(svg, pix_width, pix_height).expect("SVG file invalid");
+        
 
         if let Some(output_rendered) = output_rendered {
             pix.save_with_format(output_rendered, ::image::ImageFormat::Png)
