@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-axum = "0.7.5"
+axum = "0.8.9"
 base64 = "0.22"
 image = "0.25"
 tempfile = "3"
@@ -17,6 +17,20 @@ clap =  { version = "4.5.16", features = ["env"] }
 env_logger = "0.11.5"
 log = "0.4.22"
 zpl-typst = { path = "../typst" }
+zpl-hayro = { path = "../hayro" }
+
+# More or less temporary, this is rather overkill and not designed particularly
+# well imo. It has a persistence layer that is more or less built-in, the
+# device enumeration / print loop is crude, and it is hard to react to commands
+# with synchronization..
+#
+# And then its mdns-sd dependency builds on if-addrs which is plainly *bad*
+# since it models a 1-to-1 mapping for interface / IP and that always messes up
+# with my wireguard configuration (e.g. an assigned ipv4 but only an ipv6
+# gateway). It should use the more competent `netdev` instead.
+#
+# Evaluate using `ipp = { version = "6", default-features = false }` and mdns
+ipp-printer-app = "0.8.0"
 
 [[bin]]
 name = "zpl-server"

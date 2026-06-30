@@ -1,6 +1,7 @@
 mod app;
 mod configuration;
 mod data_uri;
+mod ipp;
 mod job;
 mod physical_printer;
 mod spa;
@@ -209,13 +210,19 @@ fn main() {
 
 async fn inner_main() {
     let config = App::parse();
-    let state = Server::new(config.configuration.into());
 
+    let state = Server::new(config.configuration.into());
     // This ensures that reload is the canonical way of loading configuration etc, which is
     // asynchronous and ensures you can change anything while running.
     let initial_load = reload(State(state.clone())).await;
 
+    let listener = tokio::net::TcpListener::bind(config.listen).await.unwrap();
+    let ipp = ipp::server_options(&state, &listener).await;
+
     assert_eq!(initial_load, "Success");
+
+    let _advertiser =
+        ipp::mdns::Advertiser::register_all(&ipp.printers, ipp.port).unwrap();
 
     let app = Router::new()
         .route("/", get(spa::frontpage))
@@ -223,11 +230,14 @@ async fn inner_main() {
         .route("/static/style.css", get(spa::static_style_css))
         .route("/api/v1/info", get(status))
         .route("/api/v1/reload", post(reload))
-        .route("/api/v1/print/:printer", post(push_job))
-        .route("/api/v1/preview/:printer", post(preview_job))
-        .with_state(state);
+        .route("/api/v1/print/{printer}", post(push_job))
+        .route("/api/v1/preview/{printer}", post(preview_job))
+        .with_state(state)
+        // Cursed: it'd be nice to use `merge` but `ipp-printer-app` will *always* register an route
+        // for `/` and for `/icon.png` and that overlaps with our own SPA. There's no good way of
+        // using its handler itself which is private.
+        .fallback_service(ipp::Server::router(ipp));
 
-    let listener = tokio::net::TcpListener::bind(config.listen).await.unwrap();
     axum::serve(listener, app).await.unwrap()
 }
 

@@ -1,0 +1,8 @@
+[package]
+name = "zpl-hayro"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hayro-svg = "0.7.0"
+hayro-syntax = "0.7.2"

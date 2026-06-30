@@ -21,4 +21,4 @@ hex = "0.4.3"
 zpl-typst = { path = "typst" }
 
 [workspace]
-members = [".", "server", "typst"]
+members = [".", "hayro", "server", "typst"]
