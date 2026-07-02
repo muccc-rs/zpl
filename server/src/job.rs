@@ -106,6 +106,7 @@ impl PrintApi {
 /// after that representation has been reached. This reduces the number of late errors that must
 /// wait on a device to process the job to be noticed.
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum PrintJob {
     Svg { tree: usvg::Tree },
     Image { image: image::DynamicImage },

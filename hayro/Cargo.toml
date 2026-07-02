@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 hayro-svg = "0.7.0"
 hayro-syntax = "0.7.2"
+quick-error = "2"

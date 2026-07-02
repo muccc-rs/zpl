@@ -67,7 +67,7 @@ pub async fn server_options(
             reg
         },
         device_backend: Arc::new(state.clone()),
-        print_job: Arc::new(move |jobctx, jobdata, _copies| {
+        print_job: Arc::new(move |jobctx, jobdata, copies| {
             let surely_no_printer = if let Ok(printers) = print_with.try_read()
             {
                 !printers.printer.contains_key(&jobctx.printer_name)
@@ -78,6 +78,7 @@ pub async fn server_options(
             let print_with = print_with.clone();
 
             Box::pin(async move {
+                // Before expensive stuff, use this read-only verification first.
                 if surely_no_printer {
                     return JobOutcome::Failed(ipp_printer_app::JobFailure {
                         printer_reasons:
@@ -93,6 +94,18 @@ pub async fn server_options(
                     zpl_hayro::convert_pdf_to_svgs(&jobdata)
                 });
 
+                let pages = match pages {
+                    Ok(pages) => pages,
+                    Err(e) => {
+                        return JobOutcome::Failed(
+                            ipp_printer_app::JobFailure {
+                                printer_reasons: PrinterReason::OTHER,
+                                message: format!("{e}",),
+                            },
+                        )
+                    }
+                };
+
                 let printers = print_with.read().await;
                 let Some(queue) = printers.printer.get(&jobctx.printer_name)
                 else {
@@ -107,11 +120,14 @@ pub async fn server_options(
                 };
 
                 let _interest = queue.printer.interest();
+                let mut jobs = vec![];
 
                 for page in pages {
                     let payload = crate::job::PrintApi {
                         dimensions: None,
-                        kind: crate::job::PrintApiKind::Svg { code: page },
+                        kind: crate::job::PrintApiKind::Svg {
+                            code: page.clone(),
+                        },
                     };
 
                     let tree = tokio::task::block_in_place(|| {
@@ -132,25 +148,31 @@ pub async fn server_options(
                         }
                     };
 
-                    let ok = queue
-                        .driver
-                        .send_job(crate::physical_printer::Task::Job {
-                            print_job,
-                            keep_up: queue.printer.interest(),
-                        })
-                        .await;
+                    jobs.push(print_job);
+                }
 
-                    match ok {
-                        Ok(()) => {}
-                        Err(e) => {
-                            return JobOutcome::Failed(
-                                ipp_printer_app::JobFailure {
-                                    printer_reasons: PrinterReason::OTHER,
-                                    message: format!(
-                                        "Printer driver says: {e}"
-                                    ),
-                                },
-                            )
+                for _ in 0..copies {
+                    for print_job in jobs.iter() {
+                        let ok = queue
+                            .driver
+                            .send_job(crate::physical_printer::Task::Job {
+                                print_job: print_job.clone(),
+                                keep_up: queue.printer.interest(),
+                            })
+                            .await;
+
+                        match ok {
+                            Ok(()) => {}
+                            Err(e) => {
+                                return JobOutcome::Failed(
+                                    ipp_printer_app::JobFailure {
+                                        printer_reasons: PrinterReason::OTHER,
+                                        message: format!(
+                                            "Printer driver says: {e}"
+                                        ),
+                                    },
+                                )
+                            }
                         }
                     }
                 }

@@ -1,11 +1,23 @@
 use hayro_syntax::Pdf;
+#[macro_use]
+extern crate quick_error;
 
-pub fn convert_pdf_to_svgs(pdf: &[u8]) -> Vec<String> {
+quick_error::quick_error! {
+    #[derive(Debug)]
+    pub enum PdfRenderError {
+        Load(err: hayro_syntax::LoadPdfError) {
+            from()
+            display("Bad PDF: {:?}", err)
+        }
+    }
+}
+
+pub fn convert_pdf_to_svgs(pdf: &[u8]) -> Result<Vec<String>, PdfRenderError> {
     // Then create a new PDF file from it.
     //
     // Here we are just unwrapping in case reading the file failed, but you
     // might instead want to apply proper error handling.
-    let pdf = Pdf::new(pdf.to_vec()).unwrap();
+    let pdf = Pdf::new(pdf.to_vec())?;
 
     let cache = hayro_svg::RenderCache::new();
     let intp_settings =
@@ -28,5 +40,5 @@ pub fn convert_pdf_to_svgs(pdf: &[u8]) -> Vec<String> {
         ));
     }
 
-    svgs
+    Ok(svgs)
 }

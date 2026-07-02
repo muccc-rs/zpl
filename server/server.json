@@ -36,7 +36,7 @@
 	},
 	"printers": {
 		"gx430t": {
-			"label": "20in",
+			"label": "none-20in",
 			"addr": "192.168.179.111:9100",
 			"display_name": "Porkhy",
 			"calibration": {
@@ -44,7 +44,7 @@
 			}
 		},
 		"CERT-ZD611": {
-			"label": "20in×12in",
+			"label": "none-20in×12in",
 			"addr": "192.168.1.52:9100",
 			"display_name": "CERT",
 			"calibration": {
@@ -52,7 +52,7 @@
 			}
 		},
 		"CERT-ZD612": {
-			"label": "200mm×99mm",
+			"label": "none-200mm×99mm",
 			"addr": "192.168.1.47:9100",
 			"display_name": "CERT-Big",
 			"calibration": {
@@ -68,9 +68,9 @@
 			}
 		},
 		"gx430t-virtualized": {
-			"label": "200mm×99mm",
+			"label": "none-200mm×99mm",
 			"addr": "0.0.0.0:0",
-			"display_name": "Virtual Printer (test)",
+			"display_name": "Spectrum Virtual Printer (test)",
 			"virtualization": {
 				"zpl_only": {
 					"wait_time": {
