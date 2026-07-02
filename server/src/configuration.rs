@@ -57,6 +57,9 @@ pub struct LabelPrinter {
 
     #[serde(default)]
     pub connection: PrinterConnectionSettings,
+
+    /// A unique, stable, identifier for the device. Should be a UUID (v7 recommended).
+    pub device_id: Option<uuid::Uuid>,
 }
 
 #[derive(Deserialize, Serialize, Default)]

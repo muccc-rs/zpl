@@ -196,7 +196,7 @@ fn main() {
     // Tokio would steal our initialization, apart from the filter. The environment variable parsing
     // would not be able to change any setting though.
     env_logger::Builder::default()
-        .filter(None, log::LevelFilter::Info)
+        .filter(None, log::LevelFilter::Trace)
         .parse_env(std::env::var("RUST_LOG").unwrap_or_default())
         .init();
 
@@ -236,7 +236,11 @@ async fn inner_main() {
         // Cursed: it'd be nice to use `merge` but `ipp-printer-app` will *always* register an route
         // for `/` and for `/icon.png` and that overlaps with our own SPA. There's no good way of
         // using its handler itself which is private.
-        .fallback_service(ipp::Server::router(ipp));
+        .fallback_service(
+            // Printed PDF may be quite large (with images).
+            ipp::Server::router(ipp)
+                .layer(axum::extract::DefaultBodyLimit::max(2 << 27)),
+        );
 
     axum::serve(listener, app).await.unwrap()
 }

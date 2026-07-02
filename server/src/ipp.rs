@@ -18,10 +18,11 @@ pub async fn server_options(
 ) -> ServerOptions {
     let inner = state.inner.read().await;
     let print_with = state.inner.clone();
+    let addr = listener.local_addr().unwrap();
 
     ServerOptions {
-        host: listener.local_addr().unwrap().ip().to_string(),
-        port: listener.local_addr().unwrap().port(),
+        host: addr.ip().to_string(),
+        port: addr.port(),
         printers: {
             let mut reg = PrinterRegistry::default();
             let vec = Arc::get_mut(&mut reg).unwrap().get_mut();
@@ -29,6 +30,7 @@ pub async fn server_options(
             for (key, ptr) in inner.printer.iter() {
                 let status = ptr.printer.status();
                 let label = &status.printer_label.0.label;
+                let device_id = status.printer_label.0.config.device_id;
 
                 let hmm = format!(
                     "{}",
@@ -40,7 +42,7 @@ pub async fn server_options(
                     label.dimensions.width.max(label.dimensions.height) as i32
                 );
 
-                vec.push(PrinterRecord::new(PrinterConfig {
+                let mut record = PrinterRecord::new(PrinterConfig {
                     name: key.to_string(),
                     display_name: status
                         .display_name
@@ -48,10 +50,11 @@ pub async fn server_options(
                         .unwrap_or_else(|| key.to_string()),
                     driver_name: "Zebra-Herd".into(),
                     make_and_model: "Zebra (indeterminate)".into(),
-                    device_id: "xxxxx-xxxxx-yyyy-".into(),
-                    device_uri:
-                        "http://localhost:8080/ipp/printers/xxxxx-xxxxx-yyyy-"
-                            .into(),
+                    device_id: device_id.map_or_else(
+                        || "xxxxx-xxxxx-yyyy-".into(),
+                        |uuid| uuid.to_string(),
+                    ),
+                    device_uri: format!("ipp://{addr}/ipp/print/{key}"),
                     dpi: 72,
                     printhead_width_dots: 300,
                     media_names: vec![format!("om_folio_{hmm}x{wmm}mm")],
@@ -61,7 +64,13 @@ pub async fn server_options(
                     ]],
                     darkness: 50,
                     document_formats: vec!["application/pdf".into()],
-                }));
+                });
+
+                if let Some(uuid) = device_id {
+                    record.uuid = uuid.to_string();
+                }
+
+                vec.push(record);
             }
 
             reg
@@ -78,8 +87,14 @@ pub async fn server_options(
             let print_with = print_with.clone();
 
             Box::pin(async move {
+                log::trace!(
+                    "Print job {}×{copies} via IPP",
+                    jobctx.document_format
+                );
+
                 // Before expensive stuff, use this read-only verification first.
                 if surely_no_printer {
+                    log::trace!("No printer (fast) {}", &jobctx.printer_name);
                     return JobOutcome::Failed(ipp_printer_app::JobFailure {
                         printer_reasons:
                             PrinterReason::IDENTIFY_PRINTER_REQUESTED,
@@ -97,18 +112,20 @@ pub async fn server_options(
                 let pages = match pages {
                     Ok(pages) => pages,
                     Err(e) => {
+                        log::trace!("Failed PDF-to-SVG: {e}");
                         return JobOutcome::Failed(
                             ipp_printer_app::JobFailure {
                                 printer_reasons: PrinterReason::OTHER,
                                 message: format!("{e}",),
                             },
-                        )
+                        );
                     }
                 };
 
                 let printers = print_with.read().await;
                 let Some(queue) = printers.printer.get(&jobctx.printer_name)
                 else {
+                    log::trace!("No printer {}", &jobctx.printer_name);
                     return JobOutcome::Failed(ipp_printer_app::JobFailure {
                         printer_reasons:
                             PrinterReason::IDENTIFY_PRINTER_REQUESTED,
@@ -137,6 +154,7 @@ pub async fn server_options(
                     let print_job = match tree {
                         Ok(job) => job,
                         Err(err) => {
+                            log::trace!("Failed SVG-to-job: {err:?}");
                             return JobOutcome::Failed(
                                 ipp_printer_app::JobFailure {
                                     printer_reasons: PrinterReason::OTHER,
@@ -144,14 +162,14 @@ pub async fn server_options(
                                         "SVG interpretation of PDF page fails: {err}"
                                     ),
                                 },
-                            )
+                            );
                         }
                     };
 
                     jobs.push(print_job);
                 }
 
-                for _ in 0..copies {
+                for _ in 0..copies.max(1) {
                     for print_job in jobs.iter() {
                         let ok = queue
                             .driver
@@ -164,6 +182,7 @@ pub async fn server_options(
                         match ok {
                             Ok(()) => {}
                             Err(e) => {
+                                log::trace!("Failed page: {e}");
                                 return JobOutcome::Failed(
                                     ipp_printer_app::JobFailure {
                                         printer_reasons: PrinterReason::OTHER,
@@ -171,12 +190,13 @@ pub async fn server_options(
                                             "Printer driver says: {e}"
                                         ),
                                     },
-                                )
+                                );
                             }
                         }
                     }
                 }
 
+                log::trace!("Ipp job complete {}", jobctx.id);
                 JobOutcome::Completed
             })
         }),

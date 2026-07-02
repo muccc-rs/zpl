@@ -65,7 +65,8 @@
 			"display_name": "Spectrum",
 			"calibration": {
 				"home_x": 0.0
-			}
+			},
+			"device_id": "019f2413-defa-7e58-8532-6548a722cf42"
 		},
 		"gx430t-virtualized": {
 			"label": "none-200mm×99mm",
